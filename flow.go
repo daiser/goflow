@@ -5,6 +5,10 @@ import (
 	"sync"
 )
 
+type Filter[V any] func(V) bool
+type Observer[V any] func(V)
+type Classificator[V any, C comparable] func(V) []C
+
 type Flow[T any] struct {
 	channel chan T
 	ends    **[]*sync.WaitGroup
@@ -57,7 +61,7 @@ func (f Flow[T]) RunChan(items <-chan T) {
 	f.done()
 }
 
-func (in Flow[T]) Filter(filter func(T) bool) Flow[T] {
+func (in Flow[T]) Filter(filter Filter[T]) Flow[T] {
 	out := in.new()
 	go func() {
 		for t := range in.channel {
@@ -69,25 +73,6 @@ func (in Flow[T]) Filter(filter func(T) bool) Flow[T] {
 	}()
 
 	return out
-}
-
-func (in Flow[T]) Segregate(filter func(T) bool) (passed Flow[T], failed Flow[T]) {
-	passed = in.new()
-	failed = in.new()
-
-	go func() {
-		for i := range in.channel {
-			if filter(i) {
-				passed.channel <- i
-			} else {
-				failed.channel <- i
-			}
-		}
-		passed.done()
-		failed.done()
-	}()
-
-	return
 }
 
 func (in Flow[T]) Collect() (**[]T, *sync.WaitGroup) {
@@ -187,4 +172,79 @@ func Map[TSrc any, TDst any](in Flow[TSrc], mapper func(TSrc) TDst) Flow[TDst] {
 	}()
 
 	return out
+}
+
+func Segregate[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *[]Flow[V] {
+	return segregate(in, classificator, classes, false)
+}
+
+func SegregateWithUnclassified[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *[]Flow[V] {
+	return segregate(in, classificator, classes, true)
+}
+
+func segregate[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C, withUnclassified bool) *[]Flow[V] {
+	s := newSegregator(in, classificator, classes)
+	if withUnclassified {
+		s.createUnclassified(in)
+	}
+
+	go func() {
+		for v := range in.channel {
+			routes := s.route(v)
+			for _, flow := range routes {
+				flow.channel <- v
+			}
+		}
+		for _, flow := range s.outs {
+			flow.done()
+		}
+	}()
+
+	return &s.outs
+}
+
+type segregator[V any, C comparable] struct {
+	classify     Classificator[V, C]
+	outs         []Flow[V]
+	routes       map[C]*Flow[V]
+	unclassified *Flow[V]
+}
+
+func newSegregator[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *segregator[V, C] {
+	outs := make([]Flow[V], len(classes), len(classes)+1)
+	routes := make(map[C]*Flow[V], len(classes))
+
+	for i, class := range classes {
+		outs[i] = in.new()
+		routes[class] = &outs[i]
+	}
+
+	return &segregator[V, C]{
+		classify:     classificator,
+		outs:         outs,
+		routes:       routes,
+		unclassified: nil,
+	}
+}
+
+func (s *segregator[V, C]) createUnclassified(in Flow[V]) {
+	s.outs = append(s.outs, in.new())
+	s.unclassified = &s.outs[len(s.outs)-1]
+}
+
+func (c segregator[V, C]) route(value V) []*Flow[V] {
+	destinations := make([]*Flow[V], 0, len(c.outs))
+
+	classes := c.classify(value)
+	for _, class := range classes {
+		if out, ok := c.routes[class]; ok {
+			destinations = append(destinations, out)
+		}
+	}
+
+	if len(destinations) == 0 && c.unclassified != nil {
+		destinations = append(destinations, c.unclassified)
+	}
+
+	return destinations
 }
