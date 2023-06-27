@@ -8,6 +8,7 @@ import (
 type Filter[V any] func(V) bool
 type Observer[V any] func(V)
 type Classificator[V any, C comparable] func(V) []C
+type Consumer[V any] func(V)
 
 type Flow[T any] struct {
 	channel chan T

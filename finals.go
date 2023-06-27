@@ -20,14 +20,14 @@ func (in Flow[T]) Collect() (**[]T, *sync.WaitGroup) {
 	return &itemsPtrPtr, in.addEnd(&collecting)
 }
 
-func (in Flow[T]) Consume(plug func(T)) *sync.WaitGroup {
+func (in Flow[T]) Consume(consumer Consumer[T]) *sync.WaitGroup {
 	var consuming sync.WaitGroup
 
 	consuming.Add(1)
 	go func() {
 		defer consuming.Done()
 		for i := range in.channel {
-			plug(i)
+			consumer(i)
 		}
 	}()
 
