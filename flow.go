@@ -47,7 +47,7 @@ func (f Flow[T]) Wait() {
 	}
 }
 
-func (f Flow[T]) RunArr(items []T) {
+func (f Flow[T]) SendArr(items []T) {
 	for _, item := range items {
 		f.channel <- item
 	}
@@ -73,51 +73,6 @@ func (in Flow[T]) Filter(filter Filter[T]) Flow[T] {
 	}()
 
 	return out
-}
-
-func (in Flow[T]) Collect() (**[]T, *sync.WaitGroup) {
-	var itemsPtrPtr *[]T
-
-	var collecting sync.WaitGroup
-	collecting.Add(1)
-	go func() {
-		defer collecting.Done()
-
-		items := make([]T, 0)
-		for i := range in.channel {
-			items = append(items, i)
-		}
-		itemsPtrPtr = &items
-	}()
-
-	return &itemsPtrPtr, in.addEnd(&collecting)
-}
-
-func (in Flow[T]) Consume(plug func(T)) *sync.WaitGroup {
-	var consuming sync.WaitGroup
-
-	consuming.Add(1)
-	go func() {
-		defer consuming.Done()
-		for i := range in.channel {
-			plug(i)
-		}
-	}()
-
-	return in.addEnd(&consuming)
-}
-
-func (in Flow[T]) Dispose() *sync.WaitGroup {
-	var disposing sync.WaitGroup
-
-	disposing.Add(1)
-	go func() {
-		defer disposing.Done()
-		for range in.channel {
-		}
-	}()
-
-	return in.addEnd(&disposing)
 }
 
 func (in Flow[T]) Tee(n int) []Flow[T] {
@@ -158,9 +113,9 @@ func (in Flow[T]) Peep(observer func(T)) Flow[T] {
 	return out
 }
 
-func Map[TSrc any, TDst any](in Flow[TSrc], mapper func(TSrc) TDst) Flow[TDst] {
-	out := Flow[TDst]{
-		channel: make(chan TDst),
+func Map[I any, O any](in Flow[I], mapper func(I) O) Flow[O] {
+	out := Flow[O]{
+		channel: make(chan O),
 		ends:    in.ends,
 	}
 
@@ -172,79 +127,4 @@ func Map[TSrc any, TDst any](in Flow[TSrc], mapper func(TSrc) TDst) Flow[TDst] {
 	}()
 
 	return out
-}
-
-func Segregate[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *[]Flow[V] {
-	return segregate(in, classificator, classes, false)
-}
-
-func SegregateWithUnclassified[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *[]Flow[V] {
-	return segregate(in, classificator, classes, true)
-}
-
-func segregate[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C, withUnclassified bool) *[]Flow[V] {
-	s := newSegregator(in, classificator, classes)
-	if withUnclassified {
-		s.createUnclassified(in)
-	}
-
-	go func() {
-		for v := range in.channel {
-			routes := s.route(v)
-			for _, flow := range routes {
-				flow.channel <- v
-			}
-		}
-		for _, flow := range s.outs {
-			flow.done()
-		}
-	}()
-
-	return &s.outs
-}
-
-type segregator[V any, C comparable] struct {
-	classify     Classificator[V, C]
-	outs         []Flow[V]
-	routes       map[C]*Flow[V]
-	unclassified *Flow[V]
-}
-
-func newSegregator[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *segregator[V, C] {
-	outs := make([]Flow[V], len(classes), len(classes)+1)
-	routes := make(map[C]*Flow[V], len(classes))
-
-	for i, class := range classes {
-		outs[i] = in.new()
-		routes[class] = &outs[i]
-	}
-
-	return &segregator[V, C]{
-		classify:     classificator,
-		outs:         outs,
-		routes:       routes,
-		unclassified: nil,
-	}
-}
-
-func (s *segregator[V, C]) createUnclassified(in Flow[V]) {
-	s.outs = append(s.outs, in.new())
-	s.unclassified = &s.outs[len(s.outs)-1]
-}
-
-func (c segregator[V, C]) route(value V) []*Flow[V] {
-	destinations := make([]*Flow[V], 0, len(c.outs))
-
-	classes := c.classify(value)
-	for _, class := range classes {
-		if out, ok := c.routes[class]; ok {
-			destinations = append(destinations, out)
-		}
-	}
-
-	if len(destinations) == 0 && c.unclassified != nil {
-		destinations = append(destinations, c.unclassified)
-	}
-
-	return destinations
 }
