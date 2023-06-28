@@ -12,15 +12,14 @@ type Consumer[V any] func(V)
 
 type Flow[T any] struct {
 	channel chan T
-	ends    **[]*sync.WaitGroup
+	ends    *[]*sync.WaitGroup
 }
 
 func NewFlow[T any]() Flow[T] {
-	endsPtrPtr := new([]*sync.WaitGroup)
-	*endsPtrPtr = make([]*sync.WaitGroup, 0) // initial list
+    ends := make([]*sync.WaitGroup,0)
 	return Flow[T]{
 		channel: make(chan T),
-		ends:    &endsPtrPtr,
+		ends:    &ends,
 	}
 }
 
@@ -36,14 +35,12 @@ func (f Flow[T]) done() {
 }
 
 func (f Flow[T]) addEnd(end *sync.WaitGroup) *sync.WaitGroup {
-	newPtr := new([]*sync.WaitGroup)
-	*newPtr = append(**f.ends, end)
-	*f.ends = newPtr
-	return end
+    *f.ends = append(*f.ends, end)
+    return end
 }
 
 func (f Flow[T]) Wait() {
-	for _, waitGroup := range **f.ends {
+	for _, waitGroup := range *f.ends {
 		waitGroup.Wait()
 	}
 }
