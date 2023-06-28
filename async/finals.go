@@ -1,6 +1,10 @@
-package goflow
+package async
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/daiser/goflow"
+)
 
 func (in Flow[T]) Collect() (*[]T, *sync.WaitGroup) {
 	items := make([]T, 0)
@@ -18,7 +22,7 @@ func (in Flow[T]) Collect() (*[]T, *sync.WaitGroup) {
 	return &items, in.addEnd(&collecting)
 }
 
-func (in Flow[T]) Consume(consumer Consumer[T]) *sync.WaitGroup {
+func (in Flow[T]) Consume(consumer goflow.Consumer[T]) *sync.WaitGroup {
 	var consuming sync.WaitGroup
 
 	consuming.Add(1)

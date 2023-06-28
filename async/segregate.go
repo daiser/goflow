@@ -1,14 +1,16 @@
-package goflow
+package async
 
-func Segregate[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *[]Flow[V] {
+import sh "github.com/daiser/goflow"
+
+func Segregate[V, C comparable](in Flow[V], classificator sh.Classificator[V, C], classes []C) *[]Flow[V] {
 	return segregate(in, classificator, classes, false)
 }
 
-func SegregateWithUnclassified[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *[]Flow[V] {
+func SegregateWithUnclassified[V, C comparable](in Flow[V], classificator sh.Classificator[V, C], classes []C) *[]Flow[V] {
 	return segregate(in, classificator, classes, true)
 }
 
-func segregate[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C, withUnclassified bool) *[]Flow[V] {
+func segregate[V, C comparable](in Flow[V], classificator sh.Classificator[V, C], classes []C, withUnclassified bool) *[]Flow[V] {
 	s := newSegregator(in, classificator, classes)
 	if withUnclassified {
 		s.createUnclassified(in)
@@ -30,13 +32,13 @@ func segregate[V, C comparable](in Flow[V], classificator Classificator[V, C], c
 }
 
 type segregator[V any, C comparable] struct {
-	classify     Classificator[V, C]
+	classify     sh.Classificator[V, C]
 	outs         []Flow[V]
 	routes       map[C]*Flow[V]
 	unclassified *Flow[V]
 }
 
-func newSegregator[V, C comparable](in Flow[V], classificator Classificator[V, C], classes []C) *segregator[V, C] {
+func newSegregator[V, C comparable](in Flow[V], classificator sh.Classificator[V, C], classes []C) *segregator[V, C] {
 	outs := make([]Flow[V], len(classes), len(classes)+1)
 	routes := make(map[C]*Flow[V], len(classes))
 
