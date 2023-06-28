@@ -113,19 +113,3 @@ func (in Flow[T]) Peep(observer func(T)) Flow[T] {
 
 	return out
 }
-
-func Map[I any, O any](in Flow[I], mapper func(I) O) Flow[O] {
-	out := Flow[O]{
-		channel: make(chan O),
-		ends:    in.ends,
-	}
-
-	go func() {
-		for i := range in.channel {
-			out.channel <- mapper(i)
-		}
-		out.done()
-	}()
-
-	return out
-}
