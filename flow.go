@@ -16,7 +16,7 @@ type Flow[T any] struct {
 }
 
 func NewFlow[T any]() Flow[T] {
-	var endsPtrPtr *[]*sync.WaitGroup
+	endsPtrPtr := new([]*sync.WaitGroup)
 	*endsPtrPtr = make([]*sync.WaitGroup, 0) // initial list
 	return Flow[T]{
 		channel: make(chan T),

@@ -1,5 +1,7 @@
 package goflow
 
+import "sync"
+
 type MappingSelector[I any, O any] func(I) <-chan O
 type Selector[V any] MappingSelector[V, V]
 
@@ -10,14 +12,19 @@ func Select[I any, O any](in Flow[I], selector MappingSelector[I, O]) Flow[O] {
 	out := createOut[I, O](in)
 
 	go func() {
+		var selecting sync.WaitGroup
 		for inValue := range in.channel {
+			selecting.Add(1)
 			selection := selector(inValue)
+
 			go func(selection <-chan O) {
+				defer selecting.Done()
 				for outValue := range selection {
 					out.channel <- outValue
 				}
 			}(selection)
 		}
+		selecting.Wait()
 		out.done()
 	}()
 
