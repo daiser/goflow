@@ -1,6 +1,10 @@
 package sync
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/daiser/goflow"
+)
 
 type Flow[V any] struct {
 	next      []*Flow[V]
@@ -18,11 +22,11 @@ func newFlow[V any](processor processor[V]) *Flow[V] {
 	}
 }
 
-func (f *Flow[V]) Filter(filter Filter[V]) *Flow[V] {
+func (f *Flow[V]) Filter(filter goflow.Filter[V]) *Flow[V] {
 	return f.attach(createFilter(filter))
 }
 
-func (f *Flow[V]) Peep(observer Observer[V]) *Flow[V] {
+func (f *Flow[V]) Peep(observer goflow.Observer[V]) *Flow[V] {
 	return f.attach(createObserver(observer))
 }
 

@@ -1,8 +1,8 @@
-package goflow
+package async
 
-type Mapper[I any, O any] func(I) O
+import "github.com/daiser/goflow"
 
-func Map[I any, O any](in Flow[I], mapper Mapper[I, O]) Flow[O] {
+func Map[I any, O any](in Flow[I], mapper goflow.Mapper[I, O]) Flow[O] {
 	out := Flow[O]{
 		channel: make(chan O),
 		ends:    in.ends,

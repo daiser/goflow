@@ -1,14 +1,11 @@
-package goflow
+package async
 
 import (
 	"fmt"
 	"sync"
-)
 
-type Filter[V any] func(V) bool
-type Observer[V any] func(V)
-type Classificator[V any, C comparable] func(V) []C
-type Consumer[V any] func(V)
+	"github.com/daiser/goflow"
+)
 
 type Flow[T any] struct {
 	channel chan T
@@ -59,7 +56,7 @@ func (f Flow[T]) RunChan(items <-chan T) {
 	f.done()
 }
 
-func (in Flow[T]) Filter(filter Filter[T]) Flow[T] {
+func (in Flow[T]) Filter(filter goflow.Filter[T]) Flow[T] {
 	out := in.new()
 	go func() {
 		for t := range in.channel {
@@ -97,7 +94,7 @@ func (in Flow[T]) Tee(n int) []Flow[T] {
 	return outs
 }
 
-func (in Flow[T]) Peep(observer func(T)) Flow[T] {
+func (in Flow[T]) Peep(observer goflow.Observer[T]) Flow[T] {
 	out := in.new()
 
 	go func() {
