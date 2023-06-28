@@ -16,7 +16,7 @@ type Flow[T any] struct {
 }
 
 func NewFlow[T any]() Flow[T] {
-    ends := make([]*sync.WaitGroup,0)
+	ends := make([]*sync.WaitGroup, 0)
 	return Flow[T]{
 		channel: make(chan T),
 		ends:    &ends,
@@ -35,8 +35,8 @@ func (f Flow[T]) done() {
 }
 
 func (f Flow[T]) addEnd(end *sync.WaitGroup) *sync.WaitGroup {
-    *f.ends = append(*f.ends, end)
-    return end
+	*f.ends = append(*f.ends, end)
+	return end
 }
 
 func (f Flow[T]) Wait() {

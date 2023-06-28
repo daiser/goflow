@@ -3,7 +3,7 @@ package goflow
 import "sync"
 
 func (in Flow[T]) Collect() (*[]T, *sync.WaitGroup) {
-    items := make([]T, 0)
+	items := make([]T, 0)
 
 	var collecting sync.WaitGroup
 	collecting.Add(1)
