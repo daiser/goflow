@@ -26,6 +26,15 @@ func (f *Flow[V]) Peep(observer Observer[V]) *Flow[V] {
 	return f.attach(createObserver(observer))
 }
 
+func (f *Flow[V]) Collect() *[]V {
+	values := make([]V, 0)
+	f.attach(func(v V) optional[V] {
+		values = append(values, v)
+		return none[V]()
+	})
+	return &values
+}
+
 func (f *Flow[V]) SendArr(values []V) {
 	for _, value := range values {
 		f.accept(value)
