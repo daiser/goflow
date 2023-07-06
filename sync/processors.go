@@ -3,18 +3,18 @@ package sync
 import "github.com/daiser/goflow"
 
 func createFilter[V any](filter goflow.Filter[V]) processor[V] {
-	return func(v V) optional[V] {
+	return func(v V) goflow.Optional[V] {
 		if filter(v) {
-			return some(v)
+			return goflow.Some(v)
 		}
-		return none[V]()
+		return goflow.None[V]()
 	}
 }
 
 func createObserver[V any](observer goflow.Observer[V]) processor[V] {
-	return func(v V) optional[V] {
+	return func(v V) goflow.Optional[V] {
 		observer(v)
-		return some(v)
+		return goflow.Some(v)
 	}
 }
 
@@ -25,11 +25,11 @@ func Map[I any, O any](in *Flow[I], mapper goflow.Mapper[I, O]) *Flow[O] {
 }
 
 func createMapper[I any, O any](mapper goflow.Mapper[I, O], out *Flow[O]) processor[I] {
-	return func(v I) optional[I] {
+	return func(v I) goflow.Optional[I] {
 		mapped := mapper(v)
 		out.accept(mapped)
 
-		return none[I]()
+		return goflow.None[I]()
 	}
 }
 
@@ -40,63 +40,41 @@ func Select[I any, O any](in *Flow[I], selector goflow.Selector[I, O]) *Flow[O] 
 }
 
 func createSelector[I any, O any](selector goflow.Selector[I, O], out *Flow[O]) processor[I] {
-	return func(i I) optional[I] {
+	return func(i I) goflow.Optional[I] {
 		for _, outValue := range selector(i) {
 			out.accept(outValue)
 		}
 
-		return none[I]()
+		return goflow.None[I]()
 	}
 }
 
 func Segregate[V any, C comparable](
 	in *Flow[V],
-	classify goflow.Classificator[V, C],
+	classify goflow.Classify[V, C],
 	classes []C,
 ) *[]*Flow[V] {
-	classificator := newClassificator(classify, classes)
+	classificator := goflow.NewClassificator(classify, classes, false, func() *Flow[V] { return NewFlow[V]() })
 	in.attach(createClassificator(classificator))
-	return &classificator.outs
+	return classificator.GetItems()
 }
 
-func createClassificator[V any, C comparable](c classificator[V, C]) processor[V] {
-	return func(v V) optional[V] {
-		c.accept(v)
-		return none[V]()
-	}
-}
-
-type classificator[V any, C comparable] struct {
-	classify goflow.Classificator[V, C]
-	outs     []*Flow[V]
-	routes   map[C]*Flow[V]
-}
-
-func newClassificator[V any, C comparable](
-	classify goflow.Classificator[V, C],
+func SegregateWithUnclassified[V any, C comparable](
+	in *Flow[V],
+	classify goflow.Classify[V, C],
 	classes []C,
-) classificator[V, C] {
-	outs := make([]*Flow[V], len(classes))
-	routes := make(map[C]*Flow[V])
-
-	for i, class := range classes {
-		outs[i] = NewFlow[V]()
-		routes[class] = outs[i]
-	}
-
-	return classificator[V, C]{
-		classify: classify,
-		outs:     outs,
-		routes:   routes,
-	}
+) *[]*Flow[V] {
+	classificator := goflow.NewClassificator(classify, classes, true, func() *Flow[V] { return NewFlow[V]() })
+	in.attach(createClassificator(classificator))
+	return classificator.GetItems()
 }
 
-func (c classificator[V, C]) accept(v V) {
-	classes := c.classify(v)
-	for _, class := range classes {
-		if route, ok := c.routes[class]; ok {
-			route.accept(v)
+func createClassificator[V any, C comparable](c goflow.Classificator[*Flow[V], V, C]) processor[V] {
+	return func(v V) goflow.Optional[V] {
+		for _, flow := range c.Find(v) {
+			flow.accept(v)
 		}
+		return goflow.None[V]()
 	}
 }
 
@@ -104,9 +82,9 @@ func JoinArr[V any](flows []*Flow[V]) *Flow[V] {
 	out := NewFlow[V]()
 
 	for _, flow := range flows {
-		flow.attach(func(v V) optional[V] {
+		flow.attach(func(v V) goflow.Optional[V] {
 			out.accept(v)
-			return none[V]()
+			return goflow.None[V]()
 		})
 	}
 

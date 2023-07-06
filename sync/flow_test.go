@@ -39,6 +39,36 @@ func TestSegregate(t *testing.T) {
 	assert.ElementsMatch(t, *odds, []int{1, 3})
 }
 
+func TestSegregateWithUnclassified(t *testing.T) {
+    // cooking
+    flow := sync.NewFlow[int]()
+    flows := sync.SegregateWithUnclassified(
+        flow,
+        func(n int) []string {
+            classes := make([]string, 0, 10)
+            for div := 2; div < 10; div++ {
+                if n%div ==0 {
+                    classes = append(classes, fmt.Sprintf("div%d", div))
+                }
+            }
+            return classes
+        },
+        []string{"div8"},
+    )
+    div8, other := (*flows)[0], (*flows)[1]
+    div8s := div8.Collect()
+    others := other.Collect()
+
+    // running
+    for n:=1;n<=50;n++ {
+        flow.Send(n)
+    }
+
+    // checking
+    assert.ElementsMatch(t, *div8s, []int{8,16,24,32,40,48})
+    assert.Len(t, *others, 44)
+}
+
 func TestPeep(t *testing.T) {
 	flow := sync.NewFlow[string]()
 
