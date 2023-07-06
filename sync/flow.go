@@ -12,7 +12,7 @@ type Flow[V any] struct {
 }
 
 func NewFlow[V any]() *Flow[V] {
-	return newFlow[V](func(v V) optional[V] { return some(v) })
+	return newFlow[V](func(v V) goflow.Optional[V] { return goflow.Some(v) })
 }
 
 func newFlow[V any](processor processor[V]) *Flow[V] {
@@ -32,9 +32,9 @@ func (f *Flow[V]) Peep(observer goflow.Observer[V]) *Flow[V] {
 
 func (f *Flow[V]) Collect() *[]V {
 	values := make([]V, 0)
-	f.attach(func(v V) optional[V] {
+	f.attach(func(v V) goflow.Optional[V] {
 		values = append(values, v)
-		return none[V]()
+		return goflow.None[V]()
 	})
 	return &values
 }
@@ -70,29 +70,11 @@ func (f *Flow[V]) attach(processor processor[V]) *Flow[V] {
 }
 
 func (f Flow[V]) accept(value V) {
-	if result := f.processor(value); result.hasValue {
+	if result := f.processor(value); result.HasValue {
 		for _, route := range f.next {
-			route.accept(result.value)
+			route.accept(result.Value)
 		}
 	}
 }
 
-type processor[V any] func(V) optional[V]
-
-type optional[V any] struct {
-	value    V
-	hasValue bool
-}
-
-func some[V any](value V) optional[V] {
-	return optional[V]{
-		value:    value,
-		hasValue: true,
-	}
-}
-
-func none[V any]() optional[V] {
-	return optional[V]{
-		hasValue: false,
-	}
-}
+type processor[V any] func(V) goflow.Optional[V]
